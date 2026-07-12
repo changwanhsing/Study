@@ -8,11 +8,13 @@ import type { ParsedImportRow } from "@/lib/excel-import";
 // serverless function time limit instead of being killed mid-import.
 export const maxDuration = 60;
 
-// Rows are processed in concurrency-limited batches rather than one at a
-// time — a fully sequential loop (4 round trips per row) is what previously
-// caused imports of a couple thousand rows to blow past the function
-// timeout and get killed with a non-JSON error response.
-const CONCURRENCY = 20;
+// Rows are bulk-inserted in chunks (one INSERT per table per chunk) rather
+// than one row at a time — a fully sequential loop (4 round trips per row)
+// is what previously caused imports of a couple thousand rows to blow past
+// the function timeout and get killed with a non-JSON error response. 2000
+// rows now takes ~4 chunks x a handful of round trips instead of ~8000
+// round trips.
+const CHUNK_SIZE = 500;
 
 interface ImportRequestBody {
   rows: ParsedImportRow[];
@@ -89,6 +91,77 @@ async function processRow(
   }
 }
 
+/**
+ * Bulk-inserts a chunk of rows in a small, fixed number of round trips
+ * (one INSERT per table, all rows at once) instead of one round trip per
+ * row. Falls back to per-row inserts for the chunk only if the bulk insert
+ * fails, so a single bad row doesn't sacrifice the fast path for everyone
+ * else and we can still pinpoint which row caused the failure.
+ */
+async function insertChunk(
+  supabase: SupabaseClient<Database>,
+  deckId: string,
+  batchId: string,
+  chunkRows: ParsedImportRow[]
+): Promise<{ successCount: number; errorCount: number }> {
+  const wordInserts = chunkRows.map((row) => ({
+    deck_id: deckId,
+    word: row.data.word,
+    ipa: row.data.ipa || null,
+    pos: row.data.pos || null,
+    correct_meaning: row.data.correctMeaning,
+  }));
+
+  const { data: insertedWords, error: bulkErr } = await supabase
+    .from("words")
+    .insert(wordInserts)
+    .select("id");
+
+  if (!bulkErr && insertedWords && insertedWords.length === chunkRows.length) {
+    const distractorInserts: { word_id: string; option_text: string; sort_order: number }[] = [];
+    const exampleInserts: { word_id: string; sentence_en: string; sentence_zh: string | null; sort_order: number }[] = [];
+    const formInserts: { word_id: string; label: string | null; form_text: string; sort_order: number }[] = [];
+
+    chunkRows.forEach((row, i) => {
+      const wordId = insertedWords[i].id;
+      row.data.wrongOptions.forEach((text, j) =>
+        distractorInserts.push({ word_id: wordId, option_text: text, sort_order: j })
+      );
+      row.data.examples.forEach((ex, j) =>
+        exampleInserts.push({
+          word_id: wordId,
+          sentence_en: ex.en,
+          sentence_zh: ex.zh || null,
+          sort_order: j,
+        })
+      );
+      row.data.forms.forEach((form, j) =>
+        formInserts.push({ word_id: wordId, label: form.label || null, form_text: form.text, sort_order: j })
+      );
+    });
+
+    await Promise.all([
+      distractorInserts.length > 0
+        ? supabase.from("word_distractors").insert(distractorInserts)
+        : Promise.resolve(null),
+      exampleInserts.length > 0
+        ? supabase.from("word_examples").insert(exampleInserts)
+        : Promise.resolve(null),
+      formInserts.length > 0
+        ? supabase.from("word_forms").insert(formInserts)
+        : Promise.resolve(null),
+    ]);
+
+    return { successCount: chunkRows.length, errorCount: 0 };
+  }
+
+  // Bulk insert failed (e.g. one bad row) — fall back to per-row inserts so
+  // we can identify and report exactly which row is at fault.
+  const results = await Promise.all(chunkRows.map((row) => processRow(supabase, deckId, batchId, row)));
+  const successCount = results.filter(Boolean).length;
+  return { successCount, errorCount: results.length - successCount };
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ deckId: string }> }
@@ -146,12 +219,11 @@ export async function POST(
   let successCount = 0;
   let errorCount = 0;
 
-  for (let i = 0; i < validRows.length; i += CONCURRENCY) {
-    const chunk = validRows.slice(i, i + CONCURRENCY);
-    const results = await Promise.all(
-      chunk.map((row) => processRow(supabase, deckId, batch.id, row))
-    );
-    results.forEach((ok) => (ok ? successCount++ : errorCount++));
+  for (let i = 0; i < validRows.length; i += CHUNK_SIZE) {
+    const chunk = validRows.slice(i, i + CHUNK_SIZE);
+    const { successCount: sc, errorCount: ec } = await insertChunk(supabase, deckId, batch.id, chunk);
+    successCount += sc;
+    errorCount += ec;
   }
 
   // Update batch status
