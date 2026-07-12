@@ -1,0 +1,115 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.uploadLabel {
+  font-family: var(--font-baloo), sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  background: var(--mint-bg);
+  color: var(--mint);
+  border: 2px solid var(--mint);
+  padding: 10px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-block;
+}
+
+.templateBtn {
+  background: none;
+  border: none;
+  color: var(--ink-soft);
+  font-weight: 700;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.summary {
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 12px;
+  padding: 10px 12px;
+  white-space: pre-line;
+  line-height: 1.5;
+}
+
+.summaryOk {
+  background: var(--mint-bg);
+  color: #1d7a52;
+}
+
+.summaryErr {
+  background: var(--coral-bg);
+  color: #b23b3b;
+}
+
+.tableScroll {
+  overflow-x: auto;
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+}
+
+.table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+  min-width: 640px;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--paper-line);
+  vertical-align: top;
+}
+
+.table th {
+  background: var(--violet-bg);
+  color: var(--violet);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.rowInvalid {
+  background: var(--coral-bg);
+}
+
+.rowNumber {
+  font-family: var(--font-mono), monospace;
+  color: var(--ink-soft);
+}
+
+.errorList {
+  color: var(--coral);
+  font-weight: 700;
+}
+
+.confirmBtn {
+  font-family: var(--font-baloo), sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  padding: 13px 34px;
+  border-radius: 999px;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.confirmBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
