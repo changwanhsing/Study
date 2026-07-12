@@ -231,6 +231,32 @@ export interface Database {
           },
         ];
       };
+      deck_collaborators: {
+        Row: {
+          id: string;
+          deck_id: string;
+          user_id: string;
+          role: "viewer" | "editor";
+          invited_at: string;
+        };
+        Insert: {
+          id?: string;
+          deck_id: string;
+          user_id: string;
+          role?: "viewer" | "editor";
+          invited_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["deck_collaborators"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "deck_collaborators_deck_id_fkey";
+            columns: ["deck_id"];
+            isOneToOne: false;
+            referencedRelation: "decks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

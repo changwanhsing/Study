@@ -1,3 +1,7 @@
+'use client';
+
+import React from 'react';
+
 export type NotificationType = 'success' | 'error' | 'info' | 'warning';
 
 export interface Notification {
@@ -20,7 +24,9 @@ export function useNotifications() {
     };
 
     listeners.add(handleUpdate);
-    return () => listeners.delete(handleUpdate);
+    return () => {
+      listeners.delete(handleUpdate);
+    };
   }, []);
 
   return notifs;
@@ -68,6 +74,3 @@ export const notify = {
   warning: (message: string, duration?: number) =>
     showNotification(message, 'warning', duration),
 };
-
-// 需要在組件中導入 React
-import React from 'react';

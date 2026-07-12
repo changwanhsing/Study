@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 interface AddCollaboratorRequest {
-  email: string;
+  userId: string;
   role: "viewer" | "editor";
 }
 
@@ -13,7 +13,9 @@ export async function GET(
   const { deckId } = await params;
   const supabase = await createClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "未授權" }, { status: 401 });
   }
@@ -33,13 +35,7 @@ export async function GET(
   // 獲取合作者列表
   const { data: collaborators, error: collabError } = await supabase
     .from("deck_collaborators")
-    .select(`
-      id,
-      user_id,
-      role,
-      invited_at,
-      auth.users!inner(email)
-    `)
+    .select("*")
     .eq("deck_id", deckId);
 
   if (collabError) {
@@ -57,7 +53,9 @@ export async function POST(
   const { deckId } = await params;
   const supabase = await createClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "未授權" }, { status: 401 });
   }
@@ -76,15 +74,8 @@ export async function POST(
 
   const body: AddCollaboratorRequest = await request.json();
 
-  // 查找要邀請的用戶
-  const { data: invitedUser, error: userError } = await supabase
-    .from("auth.users")
-    .select("id")
-    .eq("email", body.email)
-    .maybeSingle();
-
-  if (userError || !invitedUser) {
-    return NextResponse.json({ error: "用戶不存在" }, { status: 404 });
+  if (!body.userId) {
+    return NextResponse.json({ error: "缺少 userId" }, { status: 400 });
   }
 
   // 檢查是否已是合作者
@@ -92,7 +83,7 @@ export async function POST(
     .from("deck_collaborators")
     .select("id")
     .eq("deck_id", deckId)
-    .eq("user_id", invitedUser.id)
+    .eq("user_id", body.userId)
     .maybeSingle();
 
   if (existing) {
@@ -104,7 +95,7 @@ export async function POST(
     .from("deck_collaborators")
     .insert({
       deck_id: deckId,
-      user_id: invitedUser.id,
+      user_id: body.userId,
       role: body.role,
     });
 
@@ -130,7 +121,9 @@ export async function DELETE(
 
   const supabase = await createClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "未授權" }, { status: 401 });
   }
