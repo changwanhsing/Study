@@ -3,6 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchQuizWordsForUser } from "@/lib/quiz-words";
 import { DeckQuizClient } from "./DeckQuizClient";
 
+// Large decks (thousands of words) need several sequential paginated
+// requests to fetch words + SRS progress; give this page room to finish
+// within Vercel's serverless function time limit instead of erroring out.
+export const maxDuration = 60;
+
 interface DeckQuizPageProps {
   params: Promise<{ deckId: string }>;
 }

@@ -46,6 +46,7 @@ export async function fetchQuizWords(
          word_forms ( label, form_text, sort_order )`
       )
       .eq("deck_id", deckId)
+      .order("id", { ascending: true })
       .range(from, from + FETCH_PAGE_SIZE - 1);
 
     if (error) throw error;
