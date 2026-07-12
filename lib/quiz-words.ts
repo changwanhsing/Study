@@ -92,24 +92,31 @@ export async function fetchQuizWordsForUser(
   const words = await fetchQuizWords(supabase, deckId);
   if (words.length === 0) return words;
 
-  const wordIds = words.map((w) => w.id);
+  const wordIdSet = new Set(words.map((w) => w.id));
   const progressByWordId = new Map<string, string>();
 
-  // Same max-rows caveat as fetchQuizWords: page through in chunks so decks
-  // with more than 1000 words don't silently lose progress lookups.
-  for (let from = 0; from < wordIds.length; from += FETCH_PAGE_SIZE) {
-    const idChunk = wordIds.slice(from, from + FETCH_PAGE_SIZE);
+  // Page through this user's progress rows filtered only by user_id, then
+  // keep the ones for this deck's words client-side. A `.in()` filter with
+  // thousands of word ids would instead build a URL tens of thousands of
+  // characters long and fail outright — this side-steps that entirely.
+  for (let from = 0; ; from += FETCH_PAGE_SIZE) {
     const { data: progressRows, error } = await supabase
       .from("user_word_progress")
       .select("word_id, next_review_at")
       .eq("user_id", userId)
-      .in("word_id", idChunk);
+      .order("word_id", { ascending: true })
+      .range(from, from + FETCH_PAGE_SIZE - 1);
 
     if (error) throw error;
 
-    (progressRows ?? []).forEach((row) => {
-      progressByWordId.set(row.word_id, row.next_review_at);
+    const page = progressRows ?? [];
+    page.forEach((row) => {
+      if (wordIdSet.has(row.word_id)) {
+        progressByWordId.set(row.word_id, row.next_review_at);
+      }
     });
+
+    if (page.length < FETCH_PAGE_SIZE) break;
   }
 
   const now = Date.now();
