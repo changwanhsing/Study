@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import type { QuizWord } from "@/lib/quiz-words";
 
 export const IMPORT_TEMPLATE_HEADERS = [
   "word",
@@ -120,4 +121,35 @@ export function downloadImportTemplate() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "單字庫");
   XLSX.writeFile(wb, "單字匯入範本.xlsx");
+}
+
+/**
+ * Exports a deck's words to the same column layout as the import template,
+ * so the file can be edited and re-imported. Only the first 3 wrong options,
+ * 2 examples, and 2 forms are written per word — matching the import format's
+ * fixed columns — so any extras beyond that are dropped.
+ */
+export function exportWordsToExcel(deckName: string, words: QuizWord[]) {
+  const rows = words.map((w) => [
+    w.word,
+    w.ipa ?? "",
+    w.pos ?? "",
+    w.correctMeaning,
+    w.distractors[0] ?? "",
+    w.distractors[1] ?? "",
+    w.distractors[2] ?? "",
+    w.examples[0]?.en ?? "",
+    w.examples[0]?.zh ?? "",
+    w.examples[1]?.en ?? "",
+    w.examples[1]?.zh ?? "",
+    w.forms[0]?.label ?? "",
+    w.forms[0]?.text ?? "",
+    w.forms[1]?.label ?? "",
+    w.forms[1]?.text ?? "",
+  ]);
+
+  const ws = XLSX.utils.aoa_to_sheet([[...IMPORT_TEMPLATE_HEADERS], ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "單字庫");
+  XLSX.writeFile(wb, `${deckName || "單字卡組"}.xlsx`);
 }

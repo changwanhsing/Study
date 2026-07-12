@@ -2,19 +2,40 @@
 
 import { useState } from "react";
 import { ExcelImportPreview } from "@/components/ExcelImportPreview";
-import type { ParsedImportRow } from "@/lib/excel-import";
+import { exportWordsToExcel, type ParsedImportRow } from "@/lib/excel-import";
+import { createClient } from "@/lib/supabase/client";
+import { fetchQuizWords } from "@/lib/quiz-words";
 
 interface DeckImportClientProps {
   deckId: string;
   userId: string;
+  deckName: string;
 }
 
-export function DeckImportClient({ deckId, userId }: DeckImportClientProps) {
+export function DeckImportClient({ deckId, userId, deckName }: DeckImportClientProps) {
   const [result, setResult] = useState<{
     successCount: number;
     errorCount: number;
     totalRows: number;
   } | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const supabase = createClient();
+      const words = await fetchQuizWords(supabase, deckId);
+      if (words.length === 0) {
+        alert("這個卡組還沒有單字可以匯出。");
+        return;
+      }
+      exportWordsToExcel(deckName, words);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "匯出失敗");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleImportConfirm = async (rows: ParsedImportRow[]) => {
     try {
@@ -64,5 +85,16 @@ export function DeckImportClient({ deckId, userId }: DeckImportClientProps) {
     );
   }
 
-  return <ExcelImportPreview deckId={deckId} onImportConfirm={handleImportConfirm} />;
+  return (
+    <div className="space-y-4">
+      <button
+        onClick={handleExport}
+        disabled={isExporting}
+        className="px-4 py-2 text-sm font-bold rounded-full bg-violet-bg text-violet disabled:opacity-50"
+      >
+        {isExporting ? "匯出中..." : "匯出目前卡組為 Excel"}
+      </button>
+      <ExcelImportPreview deckId={deckId} onImportConfirm={handleImportConfirm} />
+    </div>
+  );
 }

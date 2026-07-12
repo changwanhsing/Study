@@ -37,7 +37,7 @@ export default async function DeckImportPage({ params }: DeckImportPageProps) {
         <h1 className="text-2xl font-bold">匯入單字</h1>
         <p className="text-sm text-gray-600">單字庫：{deck.name}</p>
       </div>
-      <DeckImportClient deckId={deck.id} userId={user.id} />
+      <DeckImportClient deckId={deck.id} userId={user.id} deckName={deck.name} />
     </div>
   );
 }
