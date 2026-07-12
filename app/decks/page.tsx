@@ -26,20 +26,25 @@ export default async function DecksPage() {
 
   const { data: decks } = await supabase
     .from("decks")
-    .select("id, name, description, created_at")
+    .select("id, name, description, lang, created_at")
     .eq("owner_id", user.id)
     .order("created_at", { ascending: false });
 
   const deckIds = (decks ?? []).map((d) => d.id);
   const wordCounts = new Map<string, number>();
   if (deckIds.length > 0) {
-    const { data: wordRows } = await supabase
-      .from("words")
-      .select("deck_id")
-      .in("deck_id", deckIds);
-    wordRows?.forEach((w) => {
-      wordCounts.set(w.deck_id, (wordCounts.get(w.deck_id) ?? 0) + 1);
-    });
+    // Use an exact count (head request) per deck rather than selecting rows —
+    // a plain row select is capped at Supabase's default max-rows (1000) and
+    // would under-count decks with more words than that.
+    await Promise.all(
+      deckIds.map(async (id) => {
+        const { count } = await supabase
+          .from("words")
+          .select("id", { count: "exact", head: true })
+          .eq("deck_id", id);
+        wordCounts.set(id, count ?? 0);
+      })
+    );
   }
 
   return (
@@ -63,6 +68,7 @@ export default async function DecksPage() {
               id={deck.id}
               name={deck.name}
               description={deck.description}
+              lang={deck.lang}
               wordCount={wordCounts.get(deck.id) ?? 0}
             />
           ))}

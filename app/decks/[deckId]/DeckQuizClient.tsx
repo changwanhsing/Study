@@ -9,16 +9,18 @@ import type { QuizWord } from "@/lib/quiz-words";
 interface DeckQuizClientProps {
   words: QuizWord[];
   deckLabel?: string;
+  lang?: string;
   userId: string;
 }
 
-export function DeckQuizClient({ words, deckLabel, userId }: DeckQuizClientProps) {
+export function DeckQuizClient({ words, deckLabel, lang, userId }: DeckQuizClientProps) {
   const supabase = useMemo(() => createClient(), []);
 
   return (
     <QuizSession
       words={words}
       deckLabel={deckLabel}
+      lang={lang}
       preserveOrder
       onAnswer={({ wordId, correct }) => {
         recordAnswer(supabase, userId, wordId, correct).catch((err) => {

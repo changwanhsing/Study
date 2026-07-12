@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 export function NewDeckForm() {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [lang, setLang] = useState("en");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -20,7 +21,7 @@ export function NewDeckForm() {
       const response = await fetch("/api/decks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, lang }),
       });
 
       if (!response.ok) {
@@ -47,6 +48,15 @@ export function NewDeckForm() {
         className="flex-1 px-3 py-2 border-2 border-ink rounded-lg"
         disabled={isSubmitting}
       />
+      <select
+        value={lang}
+        onChange={(e) => setLang(e.target.value)}
+        className="px-3 py-2 border-2 border-ink rounded-lg"
+        disabled={isSubmitting}
+      >
+        <option value="en">英文</option>
+        <option value="ja">日文</option>
+      </select>
       <button
         type="submit"
         disabled={isSubmitting || !name.trim()}

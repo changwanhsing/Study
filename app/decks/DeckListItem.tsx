@@ -7,14 +7,20 @@ import { createClient } from "@/lib/supabase/client";
 import { fetchQuizWords } from "@/lib/quiz-words";
 import { exportWordsToExcel } from "@/lib/excel-import";
 
+const LANG_LABELS: Record<string, string> = {
+  en: "🇬🇧 英文",
+  ja: "🇯🇵 日文",
+};
+
 interface DeckListItemProps {
   id: string;
   name: string;
   description: string | null;
+  lang: string;
   wordCount: number;
 }
 
-export function DeckListItem({ id, name, description, wordCount }: DeckListItemProps) {
+export function DeckListItem({ id, name, description, lang, wordCount }: DeckListItemProps) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -58,7 +64,9 @@ export function DeckListItem({ id, name, description, wordCount }: DeckListItemP
   return (
     <li className="p-4 border-2 border-ink rounded-lg flex items-center justify-between gap-4">
       <div>
-        <div className="font-bold">{name}</div>
+        <div className="font-bold">
+          {name} <span className="text-xs font-normal text-ink-soft">{LANG_LABELS[lang] ?? lang}</span>
+        </div>
         <div className="text-sm text-ink-soft">
           共 {wordCount} 個字
           {description ? ` · ${description}` : ""}

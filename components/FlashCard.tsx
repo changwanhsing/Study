@@ -19,6 +19,7 @@ export interface FlashCardProps {
   word: string;
   ipa?: string | null;
   pos?: string | null;
+  lang?: string;
   examples?: FlashCardExample[];
   forms?: FlashCardForm[];
   flipped: boolean;
@@ -34,6 +35,7 @@ export function FlashCard({
   word,
   ipa,
   pos,
+  lang = "en",
   examples = [],
   forms = [],
   flipped,
@@ -50,14 +52,14 @@ export function FlashCard({
       const reduceMotion =
         typeof window !== "undefined" &&
         window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const timer = setTimeout(() => speak(word), reduceMotion ? 0 : 350);
+      const timer = setTimeout(() => speak(word, lang), reduceMotion ? 0 : 350);
       wasFlipped.current = true;
       return () => clearTimeout(timer);
     }
     if (!flipped) {
       wasFlipped.current = false;
     }
-  }, [flipped, word]);
+  }, [flipped, word, lang]);
 
   function handleClick() {
     if (!canFlip) return;
@@ -107,7 +109,7 @@ export function FlashCard({
           <div className={styles.backWord}>{word}</div>
           <div className={styles.ipaRow}>
             <span className={styles.ipa}>{ipa ?? ""}</span>
-            <SpeakerButton text={word} />
+            <SpeakerButton text={word} lang={lang} />
           </div>
 
           {examples.length > 0 && (
@@ -116,7 +118,7 @@ export function FlashCard({
               <div className={styles.sectionLabel}>例句</div>
               {examples.map((ex, i) => (
                 <div className={styles.example} key={i}>
-                  <SpeakerButton text={ex.en} size="small" />
+                  <SpeakerButton text={ex.en} lang={lang} size="small" />
                   <div className={styles.exampleText}>
                     <div className={styles.exampleEn}>{ex.en}</div>
                     {ex.zh ? <div className={styles.exampleZh}>{ex.zh}</div> : null}

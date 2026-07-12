@@ -15,6 +15,7 @@ export interface Database {
           owner_id: string;
           name: string;
           description: string | null;
+          lang: string;
           created_at: string;
           updated_at: string;
         };
@@ -23,6 +24,7 @@ export interface Database {
           owner_id: string;
           name: string;
           description?: string | null;
+          lang?: string;
           created_at?: string;
           updated_at?: string;
         };

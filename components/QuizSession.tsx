@@ -9,6 +9,7 @@ import styles from "./QuizSession.module.css";
 export interface QuizSessionProps {
   words: QuizWord[];
   deckLabel?: string;
+  lang?: string;
   onAnswer?: (result: { wordId: string; correct: boolean }) => void;
   /**
    * When true, `words` is used as-is instead of being shuffled — for callers
@@ -17,7 +18,7 @@ export interface QuizSessionProps {
   preserveOrder?: boolean;
 }
 
-export function QuizSession({ words, deckLabel, onAnswer, preserveOrder = false }: QuizSessionProps) {
+export function QuizSession({ words, deckLabel, lang = "en", onAnswer, preserveOrder = false }: QuizSessionProps) {
   // Randomization must happen client-side only: computing it during the
   // initial render would make server- and client-rendered HTML diverge
   // (hydration mismatch), since SSR and the client each pick a different
@@ -131,6 +132,7 @@ export function QuizSession({ words, deckLabel, onAnswer, preserveOrder = false 
           word={current.word}
           ipa={current.ipa}
           pos={current.pos}
+          lang={lang}
           examples={current.examples}
           forms={current.forms}
           flipped={flipped}

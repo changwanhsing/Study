@@ -14,7 +14,7 @@ export async function GET() {
 
   const { data: decks, error } = await supabase
     .from("decks")
-    .select("id, name, description, created_at")
+    .select("id, name, description, lang, created_at")
     .eq("owner_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -43,14 +43,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "卡組名稱不可為空" }, { status: 400 });
   }
 
+  const SUPPORTED_LANGS = ["en", "ja"];
+  const lang = SUPPORTED_LANGS.includes(body.lang) ? body.lang : "en";
+
   const { data: deck, error } = await supabase
     .from("decks")
     .insert({
       owner_id: user.id,
       name,
       description: typeof body.description === "string" ? body.description : null,
+      lang,
     })
-    .select("id, name, description, created_at")
+    .select("id, name, description, lang, created_at")
     .single();
 
   if (error) {

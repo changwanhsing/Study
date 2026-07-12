@@ -25,7 +25,7 @@ export default async function DeckQuizPage({ params }: DeckQuizPageProps) {
 
   const { data: deck } = await supabase
     .from("decks")
-    .select("name")
+    .select("name, lang")
     .eq("id", deckId)
     .maybeSingle();
 
@@ -35,7 +35,7 @@ export default async function DeckQuizPage({ params }: DeckQuizPageProps) {
 
   return (
     <div className="mx-auto w-full max-w-md px-4 py-8">
-      <DeckQuizClient words={words} deckLabel={deck.name} userId={user.id} />
+      <DeckQuizClient words={words} deckLabel={deck.name} lang={deck.lang} userId={user.id} />
     </div>
   );
 }

@@ -24,23 +24,38 @@ interface WordRow {
   word_forms: { label: string | null; form_text: string; sort_order: number }[] | null;
 }
 
+const FETCH_PAGE_SIZE = 1000;
+
 export async function fetchQuizWords(
   supabase: SupabaseClient<Database>,
   deckId: string
 ): Promise<QuizWord[]> {
-  const { data, error } = await supabase
-    .from("words")
-    .select(
-      `id, word, ipa, pos, correct_meaning,
-       word_distractors ( option_text, sort_order ),
-       word_examples ( sentence_en, sentence_zh, sort_order ),
-       word_forms ( label, form_text, sort_order )`
-    )
-    .eq("deck_id", deckId);
+  // Supabase/PostgREST caps rows returned per request (default 1000) unless
+  // paginated with `.range()` — decks with more words than that would
+  // otherwise be silently truncated.
+  const rows: WordRow[] = [];
+  let from = 0;
 
-  if (error) throw error;
+  for (;;) {
+    const { data, error } = await supabase
+      .from("words")
+      .select(
+        `id, word, ipa, pos, correct_meaning,
+         word_distractors ( option_text, sort_order ),
+         word_examples ( sentence_en, sentence_zh, sort_order ),
+         word_forms ( label, form_text, sort_order )`
+      )
+      .eq("deck_id", deckId)
+      .range(from, from + FETCH_PAGE_SIZE - 1);
 
-  const rows = (data ?? []) as unknown as WordRow[];
+    if (error) throw error;
+
+    const page = (data ?? []) as unknown as WordRow[];
+    rows.push(...page);
+
+    if (page.length < FETCH_PAGE_SIZE) break;
+    from += FETCH_PAGE_SIZE;
+  }
 
   return rows.map((row) => ({
     id: row.id,
@@ -76,20 +91,25 @@ export async function fetchQuizWordsForUser(
   const words = await fetchQuizWords(supabase, deckId);
   if (words.length === 0) return words;
 
-  const { data: progressRows, error } = await supabase
-    .from("user_word_progress")
-    .select("word_id, next_review_at")
-    .eq("user_id", userId)
-    .in(
-      "word_id",
-      words.map((w) => w.id)
-    );
+  const wordIds = words.map((w) => w.id);
+  const progressByWordId = new Map<string, string>();
 
-  if (error) throw error;
+  // Same max-rows caveat as fetchQuizWords: page through in chunks so decks
+  // with more than 1000 words don't silently lose progress lookups.
+  for (let from = 0; from < wordIds.length; from += FETCH_PAGE_SIZE) {
+    const idChunk = wordIds.slice(from, from + FETCH_PAGE_SIZE);
+    const { data: progressRows, error } = await supabase
+      .from("user_word_progress")
+      .select("word_id, next_review_at")
+      .eq("user_id", userId)
+      .in("word_id", idChunk);
 
-  const progressByWordId = new Map(
-    (progressRows ?? []).map((row) => [row.word_id, row.next_review_at])
-  );
+    if (error) throw error;
+
+    (progressRows ?? []).forEach((row) => {
+      progressByWordId.set(row.word_id, row.next_review_at);
+    });
+  }
 
   const now = Date.now();
   const due: QuizWord[] = [];
