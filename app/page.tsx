@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { QuizSession } from "@/components/QuizSession";
 import type { QuizWord } from "@/lib/quiz-words";
 
@@ -53,7 +54,19 @@ const SAMPLE_WORDS: QuizWord[] = [
 
 export default function Home() {
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-8">
+    <div className="mx-auto w-full max-w-md px-4 py-8 space-y-6">
+      <div className="p-4 border-2 border-ink rounded-lg text-center space-y-2">
+        <p className="text-sm text-ink-soft">
+          這是範例卡組。要匯入自己的單字並開始學習嗎？
+        </p>
+        <Link
+          href="/decks"
+          className="inline-block px-5 py-2 bg-ink text-white font-bold rounded-full"
+        >
+          前往我的卡組
+        </Link>
+      </div>
+
       <QuizSession
         words={SAMPLE_WORDS}
         deckLabel={`範例單字庫（${SAMPLE_WORDS.length} 個）`}
