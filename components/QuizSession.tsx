@@ -114,11 +114,16 @@ export function QuizSession({ words, deckLabel, onAnswer, preserveOrder = false 
         </div>
       ) : null}
 
-      <div className={styles.progressTrack}>
-        <div
-          className={styles.progressFill}
-          style={{ width: `${(currentIndex / order.length) * 100}%` }}
-        />
+      <div className={styles.progressRow}>
+        <div className={styles.progressTrack}>
+          <div
+            className={styles.progressFill}
+            style={{ width: `${(currentIndex / order.length) * 100}%` }}
+          />
+        </div>
+        <span className={styles.progressLabel}>
+          第 {currentIndex + 1} / {order.length} 題
+        </span>
       </div>
 
       <div className={styles.scene}>

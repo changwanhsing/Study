@@ -8,9 +8,10 @@ interface DeckListItemProps {
   id: string;
   name: string;
   description: string | null;
+  wordCount: number;
 }
 
-export function DeckListItem({ id, name, description }: DeckListItemProps) {
+export function DeckListItem({ id, name, description, wordCount }: DeckListItemProps) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -37,7 +38,10 @@ export function DeckListItem({ id, name, description }: DeckListItemProps) {
     <li className="p-4 border-2 border-ink rounded-lg flex items-center justify-between gap-4">
       <div>
         <div className="font-bold">{name}</div>
-        {description && <div className="text-sm text-ink-soft">{description}</div>}
+        <div className="text-sm text-ink-soft">
+          共 {wordCount} 個字
+          {description ? ` · ${description}` : ""}
+        </div>
       </div>
       <div className="flex gap-2 flex-shrink-0">
         <Link

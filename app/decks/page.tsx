@@ -30,6 +30,18 @@ export default async function DecksPage() {
     .eq("owner_id", user.id)
     .order("created_at", { ascending: false });
 
+  const deckIds = (decks ?? []).map((d) => d.id);
+  const wordCounts = new Map<string, number>();
+  if (deckIds.length > 0) {
+    const { data: wordRows } = await supabase
+      .from("words")
+      .select("deck_id")
+      .in("deck_id", deckIds);
+    wordRows?.forEach((w) => {
+      wordCounts.set(w.deck_id, (wordCounts.get(w.deck_id) ?? 0) + 1);
+    });
+  }
+
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8 space-y-8">
       <div>
@@ -51,6 +63,7 @@ export default async function DecksPage() {
               id={deck.id}
               name={deck.name}
               description={deck.description}
+              wordCount={wordCounts.get(deck.id) ?? 0}
             />
           ))}
         </ul>
