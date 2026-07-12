@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { NewDeckForm } from "./NewDeckForm";
+import { DeckListItem } from "./DeckListItem";
 
 export default async function DecksPage() {
   const supabase = await createClient();
@@ -45,31 +46,12 @@ export default async function DecksPage() {
       ) : (
         <ul className="space-y-3">
           {decks.map((deck) => (
-            <li
+            <DeckListItem
               key={deck.id}
-              className="p-4 border-2 border-ink rounded-lg flex items-center justify-between gap-4"
-            >
-              <div>
-                <div className="font-bold">{deck.name}</div>
-                {deck.description && (
-                  <div className="text-sm text-ink-soft">{deck.description}</div>
-                )}
-              </div>
-              <div className="flex gap-2 flex-shrink-0">
-                <Link
-                  href={`/decks/${deck.id}`}
-                  className="px-3 py-1.5 text-sm font-bold rounded-full bg-mint text-white"
-                >
-                  測驗
-                </Link>
-                <Link
-                  href={`/decks/${deck.id}/import`}
-                  className="px-3 py-1.5 text-sm font-bold rounded-full bg-violet text-white"
-                >
-                  匯入 Excel
-                </Link>
-              </div>
-            </li>
+              id={deck.id}
+              name={deck.name}
+              description={deck.description}
+            />
           ))}
         </ul>
       )}
