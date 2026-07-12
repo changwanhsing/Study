@@ -27,6 +27,7 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["decks"]["Insert"]>;
+        Relationships: [];
       };
       words: {
         Row: {
@@ -50,6 +51,15 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["words"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "words_deck_id_fkey";
+            columns: ["deck_id"];
+            isOneToOne: false;
+            referencedRelation: "decks";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       word_distractors: {
         Row: {
@@ -65,6 +75,15 @@ export interface Database {
           sort_order?: number;
         };
         Update: Partial<Database["public"]["Tables"]["word_distractors"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "word_distractors_word_id_fkey";
+            columns: ["word_id"];
+            isOneToOne: false;
+            referencedRelation: "words";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       word_examples: {
         Row: {
@@ -82,6 +101,15 @@ export interface Database {
           sort_order?: number;
         };
         Update: Partial<Database["public"]["Tables"]["word_examples"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "word_examples_word_id_fkey";
+            columns: ["word_id"];
+            isOneToOne: false;
+            referencedRelation: "words";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       word_forms: {
         Row: {
@@ -99,6 +127,15 @@ export interface Database {
           sort_order?: number;
         };
         Update: Partial<Database["public"]["Tables"]["word_forms"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "word_forms_word_id_fkey";
+            columns: ["word_id"];
+            isOneToOne: false;
+            referencedRelation: "words";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       user_word_progress: {
         Row: {
@@ -124,6 +161,15 @@ export interface Database {
           wrong_count?: number;
         };
         Update: Partial<Database["public"]["Tables"]["user_word_progress"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "user_word_progress_word_id_fkey";
+            columns: ["word_id"];
+            isOneToOne: false;
+            referencedRelation: "words";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       import_batches: {
         Row: {
@@ -149,6 +195,15 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["import_batches"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "import_batches_deck_id_fkey";
+            columns: ["deck_id"];
+            isOneToOne: false;
+            referencedRelation: "decks";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       import_batch_errors: {
         Row: {
@@ -166,7 +221,20 @@ export interface Database {
           raw_data?: Json | null;
         };
         Update: Partial<Database["public"]["Tables"]["import_batch_errors"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "import_batch_errors_batch_id_fkey";
+            columns: ["batch_id"];
+            isOneToOne: false;
+            referencedRelation: "import_batches";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 }

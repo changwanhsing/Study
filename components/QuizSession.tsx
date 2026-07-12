@@ -10,9 +10,14 @@ export interface QuizSessionProps {
   words: QuizWord[];
   deckLabel?: string;
   onAnswer?: (result: { wordId: string; correct: boolean }) => void;
+  /**
+   * When true, `words` is used as-is instead of being shuffled — for callers
+   * that already ordered words by SRS priority (due first, then new).
+   */
+  preserveOrder?: boolean;
 }
 
-export function QuizSession({ words, deckLabel, onAnswer }: QuizSessionProps) {
+export function QuizSession({ words, deckLabel, onAnswer, preserveOrder = false }: QuizSessionProps) {
   // Randomization must happen client-side only: computing it during the
   // initial render would make server- and client-rendered HTML diverge
   // (hydration mismatch), since SSR and the client each pick a different
@@ -29,8 +34,10 @@ export function QuizSession({ words, deckLabel, onAnswer }: QuizSessionProps) {
   const current = order[currentIndex];
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time client-only randomization, not a derived-state anti-pattern
-    setOrder(shuffle(words));
+    if (!preserveOrder) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time client-only randomization, not a derived-state anti-pattern
+      setOrder(shuffle(words));
+    }
     setMounted(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
