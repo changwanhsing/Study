@@ -49,8 +49,11 @@ export function DeckImportClient({ deckId, userId, deckName }: DeckImportClientP
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "匯入失敗");
+        const message = await response
+          .json()
+          .then((error) => error.error || "匯入失敗")
+          .catch(() => "伺服器沒有正確回應（可能是匯入逾時），請試著把 Excel 拆成幾個較小的檔案分批匯入。");
+        throw new Error(message);
       }
 
       const data = await response.json();
