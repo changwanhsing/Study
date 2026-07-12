@@ -1,0 +1,197 @@
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+.brand {
+  font-family: var(--font-baloo), sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.brandDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--highlighter);
+  display: inline-block;
+  box-shadow: 0 0 0 3px var(--mint-bg);
+}
+
+.scorePill {
+  font-family: var(--font-baloo), sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 6px 14px;
+  border-radius: 999px;
+}
+
+.progressTrack {
+  height: 10px;
+  background: var(--paper-line);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 26px;
+  position: relative;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--mint), var(--highlighter));
+  border-radius: 999px;
+  transition: width 0.45s cubic-bezier(0.4, 1.4, 0.6, 1);
+}
+
+.scene {
+  margin-bottom: 22px;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.option {
+  font-family: var(--font-nunito), sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  text-align: left;
+  padding: 13px 16px;
+  border-radius: 14px;
+  border: 2.5px solid var(--ink);
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 3px 3px 0 var(--card-shadow);
+  transition: transform 0.12s ease, background 0.2s ease;
+}
+
+.option:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.option:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.letter {
+  font-family: var(--font-baloo), sans-serif;
+  font-size: 13px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--violet-bg);
+  color: var(--violet);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.optionCorrect {
+  background: var(--mint-bg);
+  border-color: var(--mint);
+}
+
+.optionCorrect .letter {
+  background: var(--mint);
+  color: #fff;
+}
+
+.optionWrong {
+  background: var(--coral-bg);
+  border-color: var(--coral);
+}
+
+.optionWrong .letter {
+  background: var(--coral);
+  color: #fff;
+}
+
+.option:disabled {
+  cursor: default;
+}
+
+.controls {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.nextBtn {
+  font-family: var(--font-baloo), sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  padding: 13px 34px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 4px 4px 0 var(--card-shadow);
+  transition: transform 0.12s ease;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.nextBtnActive {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.nextBtnActive:active {
+  transform: translateY(2px);
+}
+
+.doneScreen {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.doneScreen .emoji {
+  font-size: 52px;
+  margin-bottom: 10px;
+}
+
+.doneScreen h2 {
+  font-family: var(--font-baloo), sans-serif;
+  font-size: 24px;
+}
+
+.doneSubtitle {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.restartBtn {
+  margin-top: 18px;
+  font-family: var(--font-baloo), sans-serif;
+  font-weight: 700;
+  background: var(--mint);
+  color: #fff;
+  border: none;
+  padding: 12px 28px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 4px 4px 0 var(--card-shadow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progressFill,
+  .option,
+  .nextBtn {
+    transition: none;
+  }
+}
