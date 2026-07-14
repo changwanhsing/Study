@@ -27,12 +27,15 @@ export function QuizSession({ words, deckLabel, lang = "en", onAnswer, preserveO
   const [order, setOrder] = useState<QuizWord[]>(words);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
+  const [wrongCount, setWrongCount] = useState(0);
   const [answered, setAnswered] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [flipped, setFlipped] = useState(false);
   const [shuffledOptions, setShuffledOptions] = useState<string[]>([]);
 
   const current = order[currentIndex];
+  const answeredCount = score + wrongCount;
+  const accuracy = answeredCount > 0 ? Math.round((score / answeredCount) * 100) : null;
 
   useEffect(() => {
     if (!preserveOrder) {
@@ -69,7 +72,7 @@ export function QuizSession({ words, deckLabel, lang = "en", onAnswer, preserveO
         <div className="emoji">🎉</div>
         <h2>全部完成了！</h2>
         <p className={styles.doneSubtitle}>
-          這輪答對 {score} / {order.length} 題
+          這輪答對 {score} / {order.length} 題（正確率 {accuracy === null ? "—" : `${accuracy}%`}）
         </p>
         <button
           type="button"
@@ -88,7 +91,11 @@ export function QuizSession({ words, deckLabel, lang = "en", onAnswer, preserveO
     setSelectedOption(opt);
 
     const correct = opt === current.correctMeaning;
-    if (correct) setScore((s) => s + 1);
+    if (correct) {
+      setScore((s) => s + 1);
+    } else {
+      setWrongCount((w) => w + 1);
+    }
     onAnswer?.({ wordId: current.id, correct });
   }
 
@@ -106,7 +113,12 @@ export function QuizSession({ words, deckLabel, lang = "en", onAnswer, preserveO
           <span className={styles.brandDot} />
           單字小卡
         </div>
-        <div className={styles.scorePill}>✓ {score} 分</div>
+        <div className={styles.scoreGroup}>
+          <div className={styles.scorePill}>
+            ✓ {score} ✗ {wrongCount}
+          </div>
+          <div className={styles.accuracyPill}>正確率 {accuracy === null ? "—" : `${accuracy}%`}</div>
+        </div>
       </div>
 
       {deckLabel ? (

@@ -26,6 +26,38 @@ interface WordRow {
 
 const FETCH_PAGE_SIZE = 1000;
 
+/** Number of words drawn into a single quiz session. */
+export const QUIZ_SESSION_SIZE = 50;
+
+/**
+ * How much a word's error rate (wrong / (wrong + correct)) skews its odds of
+ * being picked, on top of a baseline weight of 1. A word that's always wrong
+ * ends up ERROR_RATE_WEIGHT+1 times as likely to be drawn as one that's
+ * always right.
+ */
+const ERROR_RATE_WEIGHT = 4;
+
+/** Error rate assigned to words with no answer history yet, so they show up
+ * in sessions at a moderate, not dominant, rate. */
+const NEW_WORD_ERROR_RATE = 0.5;
+
+/**
+ * Weighted random sample of `count` items without replacement, using the
+ * Efraimidis-Spirakis algorithm: each item gets a key = random()^(1/weight),
+ * and the items with the largest keys win. Higher weight -> key skews closer
+ * to 1 -> more likely to be selected.
+ */
+function weightedSample<T>(items: T[], weights: number[], count: number): T[] {
+  if (items.length <= count) return items;
+
+  const keyed = items.map((item, i) => ({
+    item,
+    key: Math.pow(Math.random(), 1 / weights[i]),
+  }));
+  keyed.sort((a, b) => b.key - a.key);
+  return keyed.slice(0, count).map((k) => k.item);
+}
+
 export async function fetchQuizWords(
   supabase: SupabaseClient<Database>,
   deckId: string
@@ -76,13 +108,26 @@ export async function fetchQuizWords(
   }));
 }
 
+interface WordProgress {
+  nextReviewAt: string;
+  errorRate: number;
+}
+
+function errorRateWeight(errorRate: number): number {
+  return 1 + ERROR_RATE_WEIGHT * errorRate;
+}
+
 /**
- * Priority queue for a review session: words due for review (next_review_at
- * <= now) come first (soonest-due first), then words the user has never
- * seen, then words not yet due (soonest-upcoming first) as a last resort so
- * a session is never empty just because everything is scheduled for later.
- * Within the "due" and "new" groups, order is randomized so repeat sessions
- * don't always show the same sequence.
+ * Draws a capped, randomized quiz session: words due for review
+ * (next_review_at <= now) come first, then words the user has never seen,
+ * then words not yet due (soonest-upcoming first) as a last resort so a
+ * session is never empty just because everything is scheduled for later.
+ *
+ * Within the "due" and "new" groups, selection is a weighted random sample
+ * (not a plain shuffle) so words with a higher historical wrong-answer rate
+ * are more likely to be picked — the session leans toward the words the
+ * user actually struggles with, instead of covering the whole deck evenly.
+ * The total session size is capped at QUIZ_SESSION_SIZE.
  */
 export async function fetchQuizWordsForUser(
   supabase: SupabaseClient<Database>,
@@ -93,7 +138,7 @@ export async function fetchQuizWordsForUser(
   if (words.length === 0) return words;
 
   const wordIdSet = new Set(words.map((w) => w.id));
-  const progressByWordId = new Map<string, string>();
+  const progressByWordId = new Map<string, WordProgress>();
 
   // Page through this user's progress rows filtered only by user_id, then
   // keep the ones for this deck's words client-side. A `.in()` filter with
@@ -102,7 +147,7 @@ export async function fetchQuizWordsForUser(
   for (let from = 0; ; from += FETCH_PAGE_SIZE) {
     const { data: progressRows, error } = await supabase
       .from("user_word_progress")
-      .select("word_id, next_review_at")
+      .select("word_id, next_review_at, correct_count, wrong_count")
       .eq("user_id", userId)
       .order("word_id", { ascending: true })
       .range(from, from + FETCH_PAGE_SIZE - 1);
@@ -112,7 +157,11 @@ export async function fetchQuizWordsForUser(
     const page = progressRows ?? [];
     page.forEach((row) => {
       if (wordIdSet.has(row.word_id)) {
-        progressByWordId.set(row.word_id, row.next_review_at);
+        const attempts = row.correct_count + row.wrong_count;
+        progressByWordId.set(row.word_id, {
+          nextReviewAt: row.next_review_at,
+          errorRate: attempts > 0 ? row.wrong_count / attempts : NEW_WORD_ERROR_RATE,
+        });
       }
     });
 
@@ -123,19 +172,43 @@ export async function fetchQuizWordsForUser(
   const due: QuizWord[] = [];
   const fresh: QuizWord[] = [];
   const later: { word: QuizWord; nextReviewAt: number }[] = [];
+  const errorRateByWordId = new Map<string, number>();
 
   for (const word of words) {
-    const nextReviewAt = progressByWordId.get(word.id);
-    if (!nextReviewAt) {
+    const progress = progressByWordId.get(word.id);
+    if (!progress) {
       fresh.push(word);
-    } else if (new Date(nextReviewAt).getTime() <= now) {
-      due.push(word);
+      errorRateByWordId.set(word.id, NEW_WORD_ERROR_RATE);
     } else {
-      later.push({ word, nextReviewAt: new Date(nextReviewAt).getTime() });
+      errorRateByWordId.set(word.id, progress.errorRate);
+      if (new Date(progress.nextReviewAt).getTime() <= now) {
+        due.push(word);
+      } else {
+        later.push({ word, nextReviewAt: new Date(progress.nextReviewAt).getTime() });
+      }
     }
   }
 
   later.sort((a, b) => a.nextReviewAt - b.nextReviewAt);
 
-  return [...shuffle(due), ...shuffle(fresh), ...later.map((l) => l.word)];
+  const weightsFor = (group: QuizWord[]) =>
+    group.map((w) => errorRateWeight(errorRateByWordId.get(w.id) ?? NEW_WORD_ERROR_RATE));
+
+  const session: QuizWord[] = [];
+
+  const dueSample = weightedSample(due, weightsFor(due), QUIZ_SESSION_SIZE);
+  session.push(...shuffle(dueSample));
+
+  if (session.length < QUIZ_SESSION_SIZE) {
+    const remaining = QUIZ_SESSION_SIZE - session.length;
+    const freshSample = weightedSample(fresh, weightsFor(fresh), remaining);
+    session.push(...shuffle(freshSample));
+  }
+
+  if (session.length < QUIZ_SESSION_SIZE) {
+    const remaining = QUIZ_SESSION_SIZE - session.length;
+    session.push(...later.slice(0, remaining).map((l) => l.word));
+  }
+
+  return session;
 }
