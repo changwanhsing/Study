@@ -16,9 +16,30 @@ export const maxDuration = 60;
 // round trips.
 const CHUNK_SIZE = 500;
 
+// Word-child deletes filter by `word_id in (...)`, which goes into the
+// request URL — a batch of 500 UUIDs would make that URL too long. Deleting
+// in smaller batches keeps each request well under typical URL limits.
+const DELETE_BATCH_SIZE = 200;
+
 interface ImportRequestBody {
   rows: ParsedImportRow[];
   fileName: string;
+}
+
+/**
+ * Deletes any existing distractors/examples/forms for the given word ids so
+ * a re-import overwrites a word's details instead of appending duplicates
+ * alongside the old ones. Safe to call for brand-new words too (no-op).
+ */
+async function clearWordChildren(supabase: SupabaseClient<Database>, wordIds: string[]): Promise<void> {
+  for (let i = 0; i < wordIds.length; i += DELETE_BATCH_SIZE) {
+    const batch = wordIds.slice(i, i + DELETE_BATCH_SIZE);
+    await Promise.all([
+      supabase.from("word_distractors").delete().in("word_id", batch),
+      supabase.from("word_examples").delete().in("word_id", batch),
+      supabase.from("word_forms").delete().in("word_id", batch),
+    ]);
+  }
 }
 
 async function processRow(
@@ -30,21 +51,28 @@ async function processRow(
   const data = row.data;
 
   try {
+    // Upsert on (deck_id, word): re-importing a word that already exists in
+    // this deck overwrites its details in place instead of adding a
+    // duplicate row.
     const { data: wordData, error: wordErr } = await supabase
       .from("words")
-      .insert({
-        deck_id: deckId,
-        word: data.word,
-        ipa: data.ipa || null,
-        pos: data.pos || null,
-        correct_meaning: data.correctMeaning,
-      })
+      .upsert(
+        {
+          deck_id: deckId,
+          word: data.word,
+          ipa: data.ipa || null,
+          pos: data.pos || null,
+          correct_meaning: data.correctMeaning,
+        },
+        { onConflict: "deck_id,word" }
+      )
       .select("id")
       .single();
 
     if (wordErr) throw wordErr;
 
     const wordId = wordData.id;
+    await clearWordChildren(supabase, [wordId]);
 
     if (data.wrongOptions.length > 0) {
       const distractorInserts = data.wrongOptions.map((text, i) => ({
@@ -112,18 +140,31 @@ async function insertChunk(
     correct_meaning: row.data.correctMeaning,
   }));
 
-  const { data: insertedWords, error: bulkErr } = await supabase
+  // Upsert on (deck_id, word) so re-importing a word already in this deck
+  // overwrites it in place instead of adding a duplicate row. If the same
+  // word appears twice within this chunk, Postgres rejects a single
+  // ON CONFLICT statement touching the same row twice — that's caught below
+  // and falls back to the per-row path, which applies both rows in order
+  // (last one wins), which is the same "overwrite" behavior we want.
+  const { data: upsertedWords, error: bulkErr } = await supabase
     .from("words")
-    .insert(wordInserts)
-    .select("id");
+    .upsert(wordInserts, { onConflict: "deck_id,word" })
+    .select("id, word");
 
-  if (!bulkErr && insertedWords && insertedWords.length === chunkRows.length) {
+  if (!bulkErr && upsertedWords && upsertedWords.length === chunkRows.length) {
+    // Match back to rows by word text (not array position) since upsert
+    // doesn't guarantee the result order mirrors the input order.
+    const idByWord = new Map(upsertedWords.map((w) => [w.word, w.id]));
+
+    await clearWordChildren(supabase, upsertedWords.map((w) => w.id));
+
     const distractorInserts: { word_id: string; option_text: string; sort_order: number }[] = [];
     const exampleInserts: { word_id: string; sentence_en: string; sentence_zh: string | null; sort_order: number }[] = [];
     const formInserts: { word_id: string; label: string | null; form_text: string; sort_order: number }[] = [];
 
-    chunkRows.forEach((row, i) => {
-      const wordId = insertedWords[i].id;
+    chunkRows.forEach((row) => {
+      const wordId = idByWord.get(row.data.word);
+      if (!wordId) return;
       row.data.wrongOptions.forEach((text, j) =>
         distractorInserts.push({ word_id: wordId, option_text: text, sort_order: j })
       );
