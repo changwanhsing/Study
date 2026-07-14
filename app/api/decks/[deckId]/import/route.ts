@@ -46,7 +46,8 @@ async function processRow(
   supabase: SupabaseClient<Database>,
   deckId: string,
   batchId: string,
-  row: ParsedImportRow
+  row: ParsedImportRow,
+  isFreshDeck: boolean
 ): Promise<boolean> {
   const data = row.data;
 
@@ -72,7 +73,10 @@ async function processRow(
     if (wordErr) throw wordErr;
 
     const wordId = wordData.id;
-    await clearWordChildren(supabase, [wordId]);
+    // A word can only have leftover children to clear if it could already
+    // exist — skip the (otherwise wasted) delete round trips entirely when
+    // importing into a deck that had no words before this request.
+    if (!isFreshDeck) await clearWordChildren(supabase, [wordId]);
 
     if (data.wrongOptions.length > 0) {
       const distractorInserts = data.wrongOptions.map((text, i) => ({
@@ -130,7 +134,8 @@ async function insertChunk(
   supabase: SupabaseClient<Database>,
   deckId: string,
   batchId: string,
-  chunkRows: ParsedImportRow[]
+  chunkRows: ParsedImportRow[],
+  isFreshDeck: boolean
 ): Promise<{ successCount: number; errorCount: number }> {
   const wordInserts = chunkRows.map((row) => ({
     deck_id: deckId,
@@ -156,7 +161,9 @@ async function insertChunk(
     // doesn't guarantee the result order mirrors the input order.
     const idByWord = new Map(upsertedWords.map((w) => [w.word, w.id]));
 
-    await clearWordChildren(supabase, upsertedWords.map((w) => w.id));
+    // See the isFreshDeck comment in processRow — brand-new decks can't have
+    // any leftover children to clear, so skip the delete round trips.
+    if (!isFreshDeck) await clearWordChildren(supabase, upsertedWords.map((w) => w.id));
 
     const distractorInserts: { word_id: string; option_text: string; sort_order: number }[] = [];
     const exampleInserts: { word_id: string; sentence_en: string; sentence_zh: string | null; sort_order: number }[] = [];
@@ -198,7 +205,9 @@ async function insertChunk(
 
   // Bulk insert failed (e.g. one bad row) — fall back to per-row inserts so
   // we can identify and report exactly which row is at fault.
-  const results = await Promise.all(chunkRows.map((row) => processRow(supabase, deckId, batchId, row)));
+  const results = await Promise.all(
+    chunkRows.map((row) => processRow(supabase, deckId, batchId, row, isFreshDeck))
+  );
   const successCount = results.filter(Boolean).length;
   return { successCount, errorCount: results.length - successCount };
 }
@@ -256,13 +265,30 @@ export async function POST(
     return NextResponse.json({ error: "無法建立匯入批次" }, { status: 500 });
   }
 
+  // A brand-new deck can't have any pre-existing words, so every row in
+  // this import is a plain insert — no word can have leftover
+  // distractors/examples/forms to clear out. Checking this once up front
+  // lets the whole import skip the per-chunk delete round trips entirely,
+  // which is the common case (importing into a freshly created deck).
+  const { count: existingWordCount } = await supabase
+    .from("words")
+    .select("id", { count: "exact", head: true })
+    .eq("deck_id", deckId);
+  const isFreshDeck = (existingWordCount ?? 0) === 0;
+
   const validRows = rows.filter((row) => row.isValid);
   let successCount = 0;
   let errorCount = 0;
 
   for (let i = 0; i < validRows.length; i += CHUNK_SIZE) {
     const chunk = validRows.slice(i, i + CHUNK_SIZE);
-    const { successCount: sc, errorCount: ec } = await insertChunk(supabase, deckId, batch.id, chunk);
+    const { successCount: sc, errorCount: ec } = await insertChunk(
+      supabase,
+      deckId,
+      batch.id,
+      chunk,
+      isFreshDeck
+    );
     successCount += sc;
     errorCount += ec;
   }
@@ -277,10 +303,26 @@ export async function POST(
     })
     .eq("id", batch.id);
 
+  // Surface why each failed row failed instead of just a count, so the UI
+  // can show the actual reason (missing field, DB error, etc.) rather than
+  // leaving the user to guess. Capped at 20 to keep the response small for
+  // imports with many failures.
+  let errors: { rowNumber: number; message: string }[] = [];
+  if (errorCount > 0) {
+    const { data: errorRows } = await supabase
+      .from("import_batch_errors")
+      .select("row_number, error_message")
+      .eq("batch_id", batch.id)
+      .order("row_number", { ascending: true })
+      .limit(20);
+    errors = (errorRows ?? []).map((e) => ({ rowNumber: e.row_number, message: e.error_message }));
+  }
+
   return NextResponse.json({
     batchId: batch.id,
     successCount,
     errorCount,
     totalRows: rows.length,
+    errors,
   });
 }

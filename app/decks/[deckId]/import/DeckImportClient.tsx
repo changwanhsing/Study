@@ -17,6 +17,7 @@ export function DeckImportClient({ deckId, userId, deckName }: DeckImportClientP
     successCount: number;
     errorCount: number;
     totalRows: number;
+    errors: { rowNumber: number; message: string }[];
   } | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -72,9 +73,23 @@ export function DeckImportClient({ deckId, userId, deckName }: DeckImportClientP
             成功匯入：<strong>{result.successCount}</strong> 個單字
           </p>
           {result.errorCount > 0 && (
-            <p className="text-red-600">
-              匯入失敗：<strong>{result.errorCount}</strong> 列
-            </p>
+            <div className="text-red-600">
+              <p>
+                匯入失敗：<strong>{result.errorCount}</strong> 列
+              </p>
+              {result.errors.length > 0 && (
+                <ul className="mt-1 list-disc space-y-1 pl-5 text-xs">
+                  {result.errors.map((e) => (
+                    <li key={e.rowNumber}>
+                      第 {e.rowNumber} 列：{e.message}
+                    </li>
+                  ))}
+                  {result.errorCount > result.errors.length && (
+                    <li>...還有 {result.errorCount - result.errors.length} 列失敗</li>
+                  )}
+                </ul>
+              )}
+            </div>
           )}
           <p className="text-gray-600">共處理 {result.totalRows} 列</p>
         </div>
